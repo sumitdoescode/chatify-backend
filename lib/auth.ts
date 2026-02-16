@@ -3,6 +3,8 @@ import { MongoClient } from "mongodb";
 import { mongodbAdapter } from "better-auth/adapters/mongodb";
 import { User } from "../models/User.model.ts";
 import { Resend } from "resend";
+import EmailVerificationTemplate from "../emails/email-verify-template.tsx";
+import DeleteAccountTemplate from "../emails/delete-account-email-template.tsx";
 
 const client = new MongoClient(process.env.MONGODB_URI!);
 const db = client.db();
@@ -25,9 +27,9 @@ export const auth = betterAuth({
                 from: "Chatify <onboarding@resend.dev>",
                 to: user.email,
                 subject: "Verify your email address",
-                html: `<p>Click <a href="${url}">here</a> to verify your email address</p>`,
-                // react: ResetPasswordTemplate({ name: user.name, email: user.email, resetUrl: url }),
+                react: EmailVerificationTemplate({ name: user.name, email: user.email, verificationUrl: url }),
             });
+            console.log({ data, error });
         },
     },
 
@@ -85,8 +87,7 @@ export const auth = betterAuth({
                     from: "Chatify <onboarding@resend.dev>",
                     to: user.email,
                     subject: "Delete your account",
-                    html: `<p>Click <a href="${url}">here</a> to delete your account</p>`,
-                    // react: EmailVerificationTemplate({ name: user.name, email: user.email, verificationUrl: url }),
+                    react: DeleteAccountTemplate({ name: user.name, email: user.email, deleteUrl: url }),
                 });
                 console.log({ data, error });
             },
