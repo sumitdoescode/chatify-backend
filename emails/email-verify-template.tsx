@@ -12,7 +12,7 @@ const EmailVerificationTemplate = ({ name = "there", email = "example@gmail.com"
         <Html lang="en" dir="ltr">
             <Tailwind>
                 <Head />
-                <Preview>Please verify your email address to complete your account setup</Preview>
+                <Preview>Please verify your email address to complete your account setupit</Preview>
                 <Body className="bg-gray-100 font-sans py-10">
                     <Container className="bg-white mx-auto px-8 py-12 max-w-150 rounded-xl">
                         {/* Main content */}
@@ -52,12 +52,6 @@ const EmailVerificationTemplate = ({ name = "there", email = "example@gmail.com"
             </Tailwind>
         </Html>
     );
-};
-
-EmailVerificationTemplate.PreviewProps = {
-    username: "Sumit",
-    userEmail: "sumit.does.code@gmail.com",
-    verificationUrl: "https://example.com/verify?token=abc123",
 };
 
 export default EmailVerificationTemplate;
