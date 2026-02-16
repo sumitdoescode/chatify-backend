@@ -41,6 +41,7 @@ export async function signUp(req: Request, res: Response) {
                 name,
                 email,
                 password,
+                callbackURL: "/",
             },
         });
 
