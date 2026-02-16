@@ -1,14 +1,22 @@
-import { Schema, model, type ObjectId, Document } from "mongoose";
+import { Schema, model, type ObjectId, type Document } from "mongoose";
 
-interface IMessage extends Document {
+export interface IMessage extends Document {
+    chat: ObjectId;
     sender: ObjectId;
     receiver: ObjectId;
     text: string;
     image: string;
+    createdAt?: Date;
+    updatedAt?: Date;
 }
 
 const messageSchema = new Schema<IMessage>(
     {
+        chat: {
+            type: Schema.Types.ObjectId,
+            ref: "Chat",
+            required: true,
+        },
         sender: {
             type: Schema.Types.ObjectId,
             ref: "User",
@@ -32,5 +40,4 @@ const messageSchema = new Schema<IMessage>(
     },
 );
 
-// if Message collection already exists then use that collection and don't create one
 export const Message = model<IMessage>("Message", messageSchema);

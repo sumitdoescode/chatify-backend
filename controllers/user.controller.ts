@@ -3,18 +3,37 @@ import { SignUp, Login } from "../schemas/user.schema.ts";
 import { flattenError } from "zod";
 import { auth } from "../lib/auth.ts";
 import { fromNodeHeaders } from "better-auth/node";
+import { User } from "../models/User.model.ts";
 
 // GET => api/user
-export async function getUser(req: Request, res: Response) {
-    try {
-        const session = await auth.api.getSession({
-            headers: fromNodeHeaders(req.headers),
-        });
+// export async function getLoggedInUser(req: Request, res: Response) {
+//     try {
+//         res.status(200).json({
+//             success: true,
+//             message: "User fetched successfully",
+//             user: (req as any).user,
+//         });
+//     } catch (error) {
+//         if (error instanceof Error) {
+//             console.log(error);
+//             res.status(500).json({
+//                 success: false,
+//                 message: error.message || "Something went wrong",
+//             });
+//         }
+//     }
+// }
 
+// GET => /api/users
+export async function getAllUsers(req: Request, res: Response) {
+    try {
+        const loggedInUser = (req as any).user;
+
+        const users = await User.find({ _id: { $ne: loggedInUser._id } }).select("name email profileImage");
         res.status(200).json({
             success: true,
-            message: "User fetched successfully",
-            user: session?.user,
+            message: "Users fetched successfully",
+            users,
         });
     } catch (error) {
         if (error instanceof Error) {
@@ -27,7 +46,7 @@ export async function getUser(req: Request, res: Response) {
     }
 }
 
-// api/user/signup
+// api/users/signup
 export async function signUp(req: Request, res: Response) {
     try {
         const { name, email, password } = req.body;
@@ -61,7 +80,7 @@ export async function signUp(req: Request, res: Response) {
     }
 }
 
-// api/user/login
+// api/users/login
 export async function login(req: Request, res: Response) {
     try {
         const { email, password } = req.body;
@@ -79,6 +98,10 @@ export async function login(req: Request, res: Response) {
             },
             asResponse: true,
         });
+
+        if (authResponse.status === 403) {
+            return res.status(403).json({ success: false, message: "Email not verified" });
+        }
         authResponse.headers.forEach((value, key) => {
             // Express handles Set-Cookie specially when value is array/string
             res.setHeader(key, value);
@@ -91,17 +114,13 @@ export async function login(req: Request, res: Response) {
     } catch (error) {
         if (error instanceof Error) {
             console.log(error);
-            res.status(500).json({
-                success: false,
-                message: error.message || "Something went wrong",
-            });
+            res.status(500).json({ success: false, message: error.message || "Internal Server Error" });
         }
     }
 }
 
-// api/user/logout
-
-// PATCH => api/user
+// update user
+// PATCH => api/users
 // export async function updateUser(req: Request, res: Response) {
 //     try {
 //         const { name, email, password } = req.body;
@@ -130,7 +149,7 @@ export async function login(req: Request, res: Response) {
 //     }
 // }
 
-// DELETE => api/user
+// DELETE => api/users
 // export async function deleteUser(req: Request, res: Response) {
 //     try {
 //         await auth.api.deleteUser({

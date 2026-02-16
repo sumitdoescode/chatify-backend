@@ -5,6 +5,7 @@ import { User } from "../models/User.model.ts";
 import { Resend } from "resend";
 import EmailVerificationTemplate from "../emails/email-verify-template.tsx";
 import DeleteAccountTemplate from "../emails/delete-account-email-template.tsx";
+import { collapseTextChangeRangesAcrossMultipleVersions } from "typescript";
 
 const client = new MongoClient(process.env.MONGODB_URI!);
 const db = client.db();
@@ -21,6 +22,8 @@ export const auth = betterAuth({
     },
 
     emailVerification: {
+        sendOnSignUp: true,
+        sendOnSignIn: true,
         sendVerificationEmail: async ({ user, url, token }, request) => {
             console.log({ url });
             const { data, error } = await resend.emails.send({
@@ -29,7 +32,9 @@ export const auth = betterAuth({
                 subject: "Verify your email address",
                 react: EmailVerificationTemplate({ name: user.name, email: user.email, verificationUrl: url }),
             });
-            console.log({ data, error });
+            if (error) {
+                console.log(error);
+            }
         },
     },
 
@@ -89,7 +94,9 @@ export const auth = betterAuth({
                     subject: "Delete your account",
                     react: DeleteAccountTemplate({ name: user.name, email: user.email, deleteUrl: url }),
                 });
-                console.log({ data, error });
+                if (error) {
+                    console.log(error);
+                }
             },
         },
     },

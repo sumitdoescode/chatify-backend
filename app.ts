@@ -1,10 +1,11 @@
 import express from "express";
 import { auth } from "./lib/auth.ts";
 import { toNodeHandler } from "better-auth/node";
-import messageRouter from "./routes/message.routes.ts";
-import userRouter from "./routes/user.routes.ts";
 import cors from "cors";
 import cookieParser from "cookie-parser";
+import messageRouter from "./routes/message.routes.ts";
+import userRouter from "./routes/user.routes.ts";
+import chatRouter from "./routes/chat.routes.ts";
 
 const app = express();
 
@@ -24,7 +25,8 @@ app.all("/api/auth/*splat", toNodeHandler(auth));
 app.use(express.json());
 
 // custom api routes
-app.use("/api/user", userRouter);
+app.use("/api/users", userRouter);
 app.use("/api/messages", messageRouter);
+app.use("/api/chats", chatRouter);
 
 export default app;
