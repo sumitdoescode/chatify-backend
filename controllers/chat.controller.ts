@@ -300,7 +300,7 @@ export async function deleteChat(req: Request, res: Response) {
             return res.status(403).json({ success: false, message: "Forbidden" });
         }
         // delete all messages of this chat
-        await Message.deleteMany({ chat: chat._id });
+        await Message.deleteMany({ chat: chat._id } as any);
         return res.status(200).json({
             success: true,
             message: "Chat deleted successfully",
