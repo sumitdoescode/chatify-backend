@@ -8,7 +8,7 @@ dns.setServers(["1.1.1.1", "1.0.0.1"]); // Cloudflare DNS
     try {
         await connectDB();
         // start listening to port
-        const PORT = process.env.PORT || 3000;
+        const PORT = process.env.PORT || 8000;
         app.listen(PORT, () => {
             console.log(`Server started on port ${PORT}`);
         });

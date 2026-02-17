@@ -10,21 +10,6 @@ import type { IMessage } from "../models/Message.model";
 export async function getAllChats(req: Request, res: Response) {
     try {
         const loggedInUser = (req as any).user;
-        // const chats = await Chat.find({
-        //     $or: [{ participant1: loggedInUser._id }, { participant2: loggedInUser._id }],
-        // })
-        //     .populate({
-        //         path: "participant1",
-        //         select: "name email profileImage",
-        //     })
-        //     .populate({
-        //         path: "participant2",
-        //         select: "name email profileImage",
-        //     })
-        //     .populate({
-        //         path: "lastMessage",
-        //         select: "text image",
-        //     });
         const chats = await Chat.aggregate([
             {
                 $match: {
@@ -104,13 +89,11 @@ export async function getAllChats(req: Request, res: Response) {
             chats,
         });
     } catch (error) {
-        if (error instanceof Error) {
-            console.log(error);
-            return res.status(500).json({
-                success: false,
-                message: error.message || "Something went wrong",
-            });
-        }
+        console.error("GET ALL CHATS ERROR:", error);
+        return res.status(500).json({
+            success: false,
+            message: error instanceof Error ? error.message : "Something went wrong",
+        });
     }
 }
 
@@ -209,20 +192,17 @@ export async function getChatById(req: Request, res: Response) {
             chat: chat[0],
         });
     } catch (error) {
-        if (error instanceof Error) {
-            console.log(error);
-            return res.status(500).json({
-                success: false,
-                message: error.message || "Something went wrong",
-            });
-        }
+        console.error("GET CHAT BY ID ERROR:", error);
+        return res.status(500).json({
+            success: false,
+            message: error instanceof Error ? error.message : "Something went wrong",
+        });
     }
 }
 
 // get messages of a chat
 // GET => /api/chats/:id/messages
 export async function getChatMessages(req: Request, res: Response) {
-    console.log("coming here!!s");
     try {
         const loggedInUser = (req as any).user;
         const chatId = req.params.id;
@@ -268,10 +248,11 @@ export async function getChatMessages(req: Request, res: Response) {
             },
         });
     } catch (error) {
-        if (error instanceof Error) {
-            console.log(error);
-            return res.status(500).json({ success: false, message: error.message || "Internal Server Error" });
-        }
+        console.error("GET CHAT MESSAGES ERROR:", error);
+        return res.status(500).json({
+            success: false,
+            message: error instanceof Error ? error.message : "Internal Server Error",
+        });
     }
 }
 
@@ -281,7 +262,6 @@ export async function deleteChat(req: Request, res: Response) {
     try {
         const loggedInUser = (req as any).user;
         const { id } = req.params;
-        console.log(id);
         if (!id || !isValidObjectId(id)) {
             return res.status(400).json({ success: false, message: "Invalid Chat id" });
         }
@@ -306,12 +286,10 @@ export async function deleteChat(req: Request, res: Response) {
             message: "Chat deleted successfully",
         });
     } catch (error) {
-        if (error instanceof Error) {
-            console.log(error);
-            return res.status(500).json({
-                success: false,
-                message: error.message || "Something went wrong",
-            });
-        }
+        console.error("DELETE CHAT ERROR:", error);
+        return res.status(500).json({
+            success: false,
+            message: error instanceof Error ? error.message : "Something went wrong",
+        });
     }
 }

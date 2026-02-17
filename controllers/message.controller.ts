@@ -64,12 +64,10 @@ export async function sendMessage(req: Request, res: Response) {
             message: "Message sent successfully",
         });
     } catch (error) {
-        if (error instanceof Error) {
-            console.log(error);
-            return res.status(500).json({
-                success: false,
-                message: error.message || "Internal Server Error",
-            });
-        }
+        console.error("SEND MESSAGE ERROR:", error);
+        return res.status(500).json({
+            success: false,
+            message: error instanceof Error ? error.message : "Internal Server Error",
+        });
     }
 }

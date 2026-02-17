@@ -1,11 +1,12 @@
 import type { Request, Response } from "express";
-import { SignUp, Login } from "../schemas/user.schema.ts";
+import { Register, Login } from "../schemas/user.schema.ts";
 import { flattenError } from "zod";
 import { auth } from "../lib/auth.ts";
 import { fromNodeHeaders } from "better-auth/node";
 import { User } from "../models/User.model.ts";
+import { APIError, makeErrorForHideStackFrame } from "better-auth";
+import type { USERNAME_ERROR_CODES } from "better-auth/plugins";
 
-// something chaged here
 // GET => api/user
 // export async function getLoggedInUser(req: Request, res: Response) {
 //     try {
@@ -31,29 +32,27 @@ export async function getAllUsers(req: Request, res: Response) {
         const loggedInUser = (req as any).user;
 
         const users = await User.find({ _id: { $ne: loggedInUser._id } }).select("name email profileImage");
-        res.status(200).json({
+        return res.status(200).json({
             success: true,
             message: "Users fetched successfully",
             users,
         });
     } catch (error) {
-        if (error instanceof Error) {
-            console.log(error);
-            res.status(500).json({
-                success: false,
-                message: error.message || "Something went wrong",
-            });
-        }
+        console.error("GET ALL USERS ERROR:", error);
+        return res.status(500).json({
+            success: false,
+            message: error instanceof Error ? error.message : "Something went wrong",
+        });
     }
 }
 
 // api/users/signup
-export async function signUp(req: Request, res: Response) {
+export async function register(req: Request, res: Response) {
     try {
         const { name, email, password } = req.body;
-        const result = SignUp.safeParse({ name, email, password });
+        const result = Register.safeParse({ name, email, password });
         if (!result.success) {
-            return res.status(400).json({ success: false, error: flattenError(result.error).fieldErrors });
+            return res.status(400).json({ success: false, errors: flattenError(result.error).fieldErrors });
         }
 
         const data = await auth.api.signUpEmail({
@@ -65,19 +64,21 @@ export async function signUp(req: Request, res: Response) {
             },
         });
 
-        res.status(201).json({
+        return res.status(201).json({
             success: true,
             message: "User registered successfully, verify your email to login",
             user: data,
         });
     } catch (error) {
-        if (error instanceof Error) {
-            console.log(error);
-            res.status(500).json({
-                success: false,
-                message: error.message || "Something went wrong",
-            });
+        console.error("REGISTER ERROR:", error);
+        if (error instanceof APIError) {
+            return res.status(error.statusCode || 500).json({ success: false, errors: { email: [error.message] } });
         }
+
+        return res.status(500).json({
+            success: false,
+            message: error instanceof Error ? error.message : "Something went wrong",
+        });
     }
 }
 
@@ -108,15 +109,13 @@ export async function login(req: Request, res: Response) {
             res.setHeader(key, value);
         });
 
-        res.status(200).json({
+        return res.status(200).json({
             success: true,
             message: "User logged in successfully",
         });
     } catch (error) {
-        if (error instanceof Error) {
-            console.log(error);
-            res.status(500).json({ success: false, message: error.message || "Internal Server Error" });
-        }
+        console.error("LOGIN ERROR:", error);
+        return res.status(500).json({ success: false, message: error instanceof Error ? error.message : "Internal Server Error" });
     }
 }
 
