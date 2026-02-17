@@ -5,6 +5,7 @@ import { auth } from "../lib/auth.ts";
 import { fromNodeHeaders } from "better-auth/node";
 import { User } from "../models/User.model.ts";
 
+// something chaged here
 // GET => api/user
 // export async function getLoggedInUser(req: Request, res: Response) {
 //     try {
