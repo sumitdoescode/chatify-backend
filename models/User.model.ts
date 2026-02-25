@@ -1,10 +1,12 @@
-import { Schema, model, Document } from "mongoose";
+import { Schema, model, type Document } from "mongoose";
 
 interface IUser extends Document {
     name: string;
     email: string;
     emailVerified: boolean;
     profileImage: string;
+    createdAt: Date;
+    updatedAt: Date;
 }
 
 const userSchema = new Schema<IUser>(

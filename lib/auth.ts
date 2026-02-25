@@ -5,7 +5,6 @@ import { User } from "../models/User.model.ts";
 import { Resend } from "resend";
 import EmailVerificationTemplate from "../emails/email-verify-template.tsx";
 import DeleteAccountTemplate from "../emails/delete-account-email-template.tsx";
-import { collapseTextChangeRangesAcrossMultipleVersions } from "typescript";
 
 const client = new MongoClient(process.env.MONGODB_URI!);
 const db = client.db();
@@ -15,6 +14,8 @@ const resend = new Resend(process.env.RESEND_API_KEY!);
 export const auth = betterAuth({
     baseURL: process.env.BETTER_AUTH_URL!,
     database: mongodbAdapter(db),
+
+    trustedOrigins: [process.env.FRONTEND_URL!],
 
     emailAndPassword: {
         enabled: true,
@@ -33,7 +34,7 @@ export const auth = betterAuth({
                 react: EmailVerificationTemplate({ name: user.name, email: user.email, verificationUrl: url }),
             });
             if (error) {
-                console.log(error);
+                console.log("Error while sending verification email", error);
             }
         },
     },
@@ -62,7 +63,7 @@ export const auth = betterAuth({
                                 name: user.name,
                                 email: user.email,
                                 emailVerified: user.emailVerified,
-                                profileImage: user.profileImage,
+                                profileImage: user.image,
                             },
                         );
                     } catch (error) {
@@ -95,7 +96,7 @@ export const auth = betterAuth({
                     react: DeleteAccountTemplate({ name: user.name, email: user.email, deleteUrl: url }),
                 });
                 if (error) {
-                    console.log(error);
+                    console.log("Error while sending delete account verification email", error);
                 }
             },
         },

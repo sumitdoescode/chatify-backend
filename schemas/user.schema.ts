@@ -1,4 +1,4 @@
-import * as z from "zod";
+import z from "zod";
 
 export const Register = z.object({
     name: z.string().min(3, "Name must be atleast of 3 characters").max(20, "Name must be less than of 20 characters"),
@@ -8,5 +8,5 @@ export const Register = z.object({
 
 export const Login = z.object({
     email: z.email("Invalid email"),
-    password: z.string().min(8, "Password must be atleast of 8 characters").max(50, "Password must be less than of 50 characters"),
+    password: z.string().max(50, "Password must be less than of 50 characters"),
 });

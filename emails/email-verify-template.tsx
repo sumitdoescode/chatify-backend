@@ -21,12 +21,12 @@ const EmailVerificationTemplate = ({ name = "there", email = "example@gmail.com"
 
                             <Heading className="text-[28px] font-bold text-gray-900 mb-6">Verify your email</Heading>
 
-                            <Text className="text-[16px] text-gray-700 mb-[32px] leading-[24px]">
+                            <Text className="text-[16px] text-gray-700 mb-8 leading-6">
                                 We need to verify your email address to complete your account setup. Please click the button below to verify <strong>{email}</strong>.
                             </Text>
 
                             {/* Verification button */}
-                            <Section className="text-center mb-[32px]">
+                            <Section className="text-center mb-8">
                                 <Button href={verificationUrl} className="box-border bg-[oklch(0.65_0.18_132)] text-white px-[32px] py-[16px] rounded-[8px] text-[16px] font-medium no-underline inline-block">
                                     Verify Email Address
                                 </Button>

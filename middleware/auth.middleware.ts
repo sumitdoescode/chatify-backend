@@ -15,7 +15,7 @@ export async function authMiddleware(req: Request, res: Response, next: NextFunc
 
         const user = await User.findOne({ email: session?.user.email });
         if (!user) {
-            return res.status(404).json({ success: false, message: "User not found" });
+            return res.status(401).json({ success: false, message: "Unauthorized" });
         }
 
         (req as any).user = user;

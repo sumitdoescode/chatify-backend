@@ -4,27 +4,7 @@ import { flattenError } from "zod";
 import { auth } from "../lib/auth.ts";
 import { fromNodeHeaders } from "better-auth/node";
 import { User } from "../models/User.model.ts";
-import { APIError, makeErrorForHideStackFrame } from "better-auth";
-import type { USERNAME_ERROR_CODES } from "better-auth/plugins";
-
-// GET => api/user
-// export async function getLoggedInUser(req: Request, res: Response) {
-//     try {
-//         res.status(200).json({
-//             success: true,
-//             message: "User fetched successfully",
-//             user: (req as any).user,
-//         });
-//     } catch (error) {
-//         if (error instanceof Error) {
-//             console.log(error);
-//             res.status(500).json({
-//                 success: false,
-//                 message: error.message || "Something went wrong",
-//             });
-//         }
-//     }
-// }
+import { APIError } from "better-auth";
 
 // GET => /api/users
 export async function getAllUsers(req: Request, res: Response) {
@@ -41,7 +21,25 @@ export async function getAllUsers(req: Request, res: Response) {
         console.error("GET ALL USERS ERROR:", error);
         return res.status(500).json({
             success: false,
-            message: error instanceof Error ? error.message : "Something went wrong",
+            message: error instanceof Error ? error.message : "Internal Server Error",
+        });
+    }
+}
+
+// GET => api/users/me
+export async function getCurrentUser(req: Request, res: Response) {
+    try {
+        const loggedInUser = (req as any).user;
+        res.status(200).json({
+            success: true,
+            message: "User fetched successfully",
+            user: loggedInUser,
+        });
+    } catch (error) {
+        console.error("GET CURRENT USER ERROR:", error);
+        return res.status(500).json({
+            success: false,
+            message: error instanceof Error ? error.message : "Internal Server Error",
         });
     }
 }
@@ -60,7 +58,7 @@ export async function register(req: Request, res: Response) {
                 name,
                 email,
                 password,
-                callbackURL: "/",
+                callbackURL: `${process.env.FRONTEND_URL}/login`,
             },
         });
 
@@ -77,7 +75,7 @@ export async function register(req: Request, res: Response) {
 
         return res.status(500).json({
             success: false,
-            message: error instanceof Error ? error.message : "Something went wrong",
+            message: error instanceof Error ? error.message : "Internal Server Error",
         });
     }
 }
@@ -101,8 +99,12 @@ export async function login(req: Request, res: Response) {
             asResponse: true,
         });
 
+        if (authResponse.status === 401) {
+            return res.status(401).json({ success: false, errors: { password: ["Invalid credentials"] } });
+        }
+
         if (authResponse.status === 403) {
-            return res.status(403).json({ success: false, message: "Email not verified" });
+            return res.status(403).json({ success: false, errors: { email: ["Email not verified, please verify your email to login"] } });
         }
         authResponse.headers.forEach((value, key) => {
             // Express handles Set-Cookie specially when value is array/string
@@ -119,35 +121,34 @@ export async function login(req: Request, res: Response) {
     }
 }
 
-// update user
+// Edit user profile
 // PATCH => api/users
-// export async function updateUser(req: Request, res: Response) {
-//     try {
-//         const { name, email, password } = req.body;
-//         const result = SignUp.safeParse({ name, email, password });
-//         if (!result.success) {
-//             return res.status(400).json({ success: false, error: flattenError(result.error).fieldErrors });
-//         }
+export async function editProfile(req: Request, res: Response) {
+    try {
+        const { name } = req.body;
+        // const profileImage = req.filter;
 
-//         await auth.api.updateUser({
-//             body: {
-//                 name,
-//                 email,
-//                 password,
-//             },
-//         });
+        // if (!result.success) {
+        //     return res.status(400).json({ success: false, error: flattenError(result.error).fieldErrors });
+        // }
 
-//         res.status(200).json({
-//             success: true,
-//             message: "User updated successfully",
-//         });
-//     } catch (error: any) {
-//         res.status(error.statusCode || 500).json({
-//             success: false,
-//             message: error.message || "Something went wrong",
-//         });
-//     }
-// }
+        await auth.api.updateUser({
+            body: {
+                name,
+            },
+        });
+
+        res.status(200).json({
+            success: true,
+            message: "User updated successfully",
+        });
+    } catch (error: any) {
+        res.status(error.statusCode || 500).json({
+            success: false,
+            message: error.message || "Something went wrong",
+        });
+    }
+}
 
 // DELETE => api/users
 // export async function deleteUser(req: Request, res: Response) {

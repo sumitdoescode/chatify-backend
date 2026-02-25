@@ -214,7 +214,8 @@ export async function getChatMessages(req: Request, res: Response) {
         page = Number(page);
         limit = Number(limit);
         if (page < 1) page = 1;
-        if (limit > 100) limit = 100;
+        if (limit < 1) limit = 5; // min value of limit is 5
+        if (limit > 100) limit = 100; // max value of limit is 100
         const skip = (page - 1) * limit;
 
         const chatExists = await Chat.findOne({

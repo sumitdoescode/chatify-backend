@@ -12,7 +12,7 @@ const app = express();
 // middlewares
 app.use(
     cors({
-        origin: "http://localhost:3000", // Replace with your frontend's origin
+        origin: process.env.FRONTEND_URL, // Replace with your frontend's origin
         methods: ["GET", "POST", "PUT", "DELETE"], // Specify allowed HTTP methods
         credentials: true, // Allow credentials (cookies, authorization headers, etc.)
     }),
