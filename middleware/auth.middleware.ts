@@ -9,13 +9,13 @@ export async function authMiddleware(req: Request, res: Response, next: NextFunc
             headers: fromNodeHeaders(req.headers),
         });
 
-        if (!session) {
-            return res.status(401).json({ success: false, message: "Unauthorized" });
+        if (!session?.user) {
+            return res.status(401).json({ success: false, message: "Unauthorizeda" });
         }
 
-        const user = await User.findOne({ email: session?.user.email });
+        const user = await User.findOne({ email: session?.user?.email });
         if (!user) {
-            return res.status(401).json({ success: false, message: "Unauthorized" });
+            return res.status(401).json({ success: false, message: "Unauthorizedb" });
         }
 
         (req as any).user = user;

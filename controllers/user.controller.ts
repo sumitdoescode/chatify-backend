@@ -5,11 +5,13 @@ import { auth } from "../lib/auth.ts";
 import { fromNodeHeaders } from "better-auth/node";
 import { User } from "../models/User.model.ts";
 import { APIError } from "better-auth";
+import { isValidObjectId } from "mongoose";
 
 // GET => /api/users
 export async function getAllUsers(req: Request, res: Response) {
     try {
         const loggedInUser = (req as any).user;
+        console.log({ loggedInUser });
 
         const users = await User.find({ _id: { $ne: loggedInUser._id } }).select("name email profileImage");
         return res.status(200).json({
@@ -19,6 +21,31 @@ export async function getAllUsers(req: Request, res: Response) {
         });
     } catch (error) {
         console.error("GET ALL USERS ERROR:", error);
+        return res.status(500).json({
+            success: false,
+            message: error instanceof Error ? error.message : "Internal Server Error",
+        });
+    }
+}
+
+// GET => /api/users/:id
+export async function getUserById(req: Request, res: Response) {
+    try {
+        const { id } = req.params;
+        if (!id || !isValidObjectId(id)) {
+            return res.status(400).json({ success: false, message: "Invalid user id" });
+        }
+        const user = await User.findById(id).select("_id name email profileImage");
+        if (!user) {
+            return res.status(404).json({ success: false, message: "User not found" });
+        }
+        return res.status(200).json({
+            success: true,
+            message: "User fetched successfully",
+            user,
+        });
+    } catch (error) {
+        console.error("GET USER BY ID ERROR:", error);
         return res.status(500).json({
             success: false,
             message: error instanceof Error ? error.message : "Internal Server Error",
