@@ -78,8 +78,12 @@ export async function getAllChats(req: Request, res: Response) {
             },
             {
                 $project: {
-                    otherParticipant: 1,
-                    lastMessage: 1,
+                    _id: 1,
+                    name: "$otherParticipant.name",
+                    email: "$otherParticipant.email",
+                    profileImage: "$otherParticipant.profileImage",
+                    lastMessage: "$lastMessage.text",
+                    createdAt: "$lastMessage.createdAt",
                 },
             },
         ]);
