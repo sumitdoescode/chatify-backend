@@ -4,6 +4,8 @@ interface IChat extends Document {
     participant1: ObjectId;
     participant2: ObjectId;
     lastMessage: ObjectId;
+    unreadCountP1: number;
+    unreadCountP2: number;
     createdAt: Date;
     updatedAt: Date;
 }
@@ -21,6 +23,14 @@ const chatSchema = new Schema<IChat>(
         lastMessage: {
             type: Schema.Types.ObjectId,
             ref: "Message",
+        },
+        unreadCountP1: {
+            type: Number,
+            default: 0,
+        },
+        unreadCountP2: {
+            type: Number,
+            default: 0,
         },
     },
     {

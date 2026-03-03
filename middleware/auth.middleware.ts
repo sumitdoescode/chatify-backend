@@ -10,20 +10,19 @@ export async function authMiddleware(req: Request, res: Response, next: NextFunc
         });
 
         if (!session?.user) {
-            return res.status(401).json({ success: false, message: "Unauthorizeda" });
+            return res.status(401).json({ success: false, message: "Unauthorized" });
         }
 
         const user = await User.findOne({ email: session?.user?.email });
         if (!user) {
-            return res.status(401).json({ success: false, message: "Unauthorizedb" });
+            return res.status(401).json({ success: false, message: "Unauthorized" });
         }
 
-        (req as any).user = user;
+        req.user = user;
         next();
-    } catch (error) {
-        if (error instanceof Error) {
-            console.log(error);
-            return res.status(500).json({ success: false, message: error.message });
-        }
+    } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : "Internal Server Error";
+        console.log(error);
+        return res.status(500).json({ success: false, message });
     }
 }

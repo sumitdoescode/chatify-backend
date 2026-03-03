@@ -5,12 +5,17 @@ import { isValidObjectId } from "mongoose";
 import { User } from "../models/User.model";
 import { Message } from "../models/Message.model";
 import { Chat } from "../models/Chat.model";
+import { put } from "@vercel/blob";
 
 // POST => /api/messages/:id , id => receiver user id
 export async function sendMessage(req: Request, res: Response) {
     try {
-        const sender = (req as any).user;
+        const sender = req.user;
         const receiverId = req.params.id;
+
+        if (!sender?._id) {
+            return res.status(401).json({ success: false, message: "Unauthorized" });
+        }
 
         if (!receiverId || !isValidObjectId(receiverId)) {
             return res.status(400).json({ success: false, message: "Invalid receiver ID" });
@@ -25,12 +30,13 @@ export async function sendMessage(req: Request, res: Response) {
             return res.status(404).json({ success: false, message: "Receiver not found" });
         }
 
-        const { text } = req.body;
-        const result = sendMessageSchema.safeParse({ text });
-        if (!result.success) {
+        const text = typeof req.body.text === "string" ? req.body.text.trim() : "";
+
+        const file = req.file as Express.Multer.File | undefined;
+        if (!text && !file) {
             return res.status(400).json({
                 success: false,
-                error: flattenError(result.error).fieldErrors,
+                message: "Message text or image is required",
             });
         }
 
@@ -42,32 +48,55 @@ export async function sendMessage(req: Request, res: Response) {
         } as any);
 
         if (!chat) {
-            // if chat didn't exist create one
             chat = await Chat.create({
                 participant1: sender._id,
                 participant2: receiver._id,
             } as any);
         }
 
+        let imageUrl: string | undefined;
+        if (file) {
+            const blob = await put(`messages${file.originalname}`, file.buffer, {
+                access: "public",
+                addRandomSuffix: true,
+                contentType: file.mimetype,
+            });
+            imageUrl = blob.url;
+        }
+
+        const result = sendMessageSchema.safeParse({ text: text || undefined, image: imageUrl });
+        if (!result.success) {
+            return res.status(400).json({
+                success: false,
+                error: flattenError(result.error).fieldErrors,
+            });
+        }
+
         const message = await Message.create({
             chat: chat._id,
             sender: sender._id,
             receiver: receiver._id,
-            text: text,
+            text: result.data.text,
+            image: result.data.image,
+            isRead: false,
         } as any);
 
         chat.lastMessage = message._id as any;
+        const receiverIdString = receiver._id.toString();
+        if (chat.participant1?.toString() === receiverIdString) {
+            chat.unreadCountP1 = (chat.unreadCountP1 || 0) + 1;
+        } else if (chat.participant2?.toString() === receiverIdString) {
+            chat.unreadCountP2 = (chat.unreadCountP2 || 0) + 1;
+        }
         await chat.save();
 
         return res.status(200).json({
             success: true,
             message: "Message sent successfully",
         });
-    } catch (error) {
+    } catch (error: unknown) {
         console.error("SEND MESSAGE ERROR:", error);
-        return res.status(500).json({
-            success: false,
-            message: error instanceof Error ? error.message : "Internal Server Error",
-        });
+        const message = error instanceof Error ? error.message : "Internal Server Error";
+        return res.status(500).json({ success: false, message });
     }
 }

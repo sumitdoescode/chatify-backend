@@ -2,29 +2,43 @@ import type { Request, Response } from "express";
 import { Register, Login } from "../schemas/user.schema.ts";
 import { flattenError } from "zod";
 import { auth } from "../lib/auth.ts";
-import { fromNodeHeaders } from "better-auth/node";
 import { User } from "../models/User.model.ts";
 import { APIError } from "better-auth";
 import { isValidObjectId } from "mongoose";
+import { Message } from "../models/Message.model.ts";
+import { Chat } from "../models/Chat.model.ts";
+import { put, del } from "@vercel/blob";
 
 // GET => /api/users
 export async function getAllUsers(req: Request, res: Response) {
     try {
-        const loggedInUser = (req as any).user;
-        console.log({ loggedInUser });
+        const loggedInUser = req.user;
+        const users = await User.find({ _id: { $ne: loggedInUser?._id } }).select("name email profileImage");
 
-        const users = await User.find({ _id: { $ne: loggedInUser._id } }).select("name email profileImage");
         return res.status(200).json({
             success: true,
             message: "Users fetched successfully",
             users,
         });
-    } catch (error) {
+    } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : "Internal Server Error";
         console.error("GET ALL USERS ERROR:", error);
-        return res.status(500).json({
-            success: false,
-            message: error instanceof Error ? error.message : "Internal Server Error",
+        return res.status(500).json({ success: false, message });
+    }
+}
+
+// GET => /api/users/me
+export async function getCurrentUser(req: Request, res: Response) {
+    try {
+        return res.status(200).json({
+            success: true,
+            message: "User fetched successfully",
+            user: req.user,
         });
+    } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : "Internal Server Error";
+        console.error("GET CURRENT USER ERROR:", error);
+        return res.status(500).json({ success: false, message });
     }
 }
 
@@ -35,43 +49,101 @@ export async function getUserById(req: Request, res: Response) {
         if (!id || !isValidObjectId(id)) {
             return res.status(400).json({ success: false, message: "Invalid user id" });
         }
+
         const user = await User.findById(id).select("_id name email profileImage");
         if (!user) {
             return res.status(404).json({ success: false, message: "User not found" });
         }
+
         return res.status(200).json({
             success: true,
             message: "User fetched successfully",
             user,
         });
-    } catch (error) {
+    } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : "Internal Server Error";
         console.error("GET USER BY ID ERROR:", error);
-        return res.status(500).json({
-            success: false,
-            message: error instanceof Error ? error.message : "Internal Server Error",
-        });
+        return res.status(500).json({ success: false, message });
     }
 }
 
-// GET => api/users/me
-export async function getCurrentUser(req: Request, res: Response) {
+// GET => /api/users/:id/messages
+export async function getUserMessages(req: Request, res: Response) {
     try {
-        const loggedInUser = (req as any).user;
-        res.status(200).json({
+        const { id } = req.params;
+        const loggedInUser = req.user;
+
+        if (!loggedInUser?._id) {
+            return res.status(401).json({ success: false, message: "Unauthorized" });
+        }
+
+        if (!id || !isValidObjectId(id)) {
+            return res.status(400).json({ success: false, message: "Invalid user id" });
+        }
+
+        if (loggedInUser._id.toString() === id) {
+            return res.status(400).json({ success: false, message: "Cannot fetch messages with yourself" });
+        }
+
+        const user = await User.exists({ _id: id });
+        if (!user) {
+            return res.status(404).json({ success: false, message: "User not found" });
+        }
+
+        const page = Math.max(1, Number(req.query.page) || 1);
+        const limit = Math.min(100, Math.max(1, Number(req.query.limit) || 50));
+        const skip = (page - 1) * limit;
+
+        const filter: any = {
+            $or: [
+                { sender: id, receiver: loggedInUser._id },
+                { sender: loggedInUser._id, receiver: id },
+            ],
+        };
+
+        const chat = await Chat.findOne({
+            $or: [
+                { participant1: loggedInUser._id, participant2: id },
+                { participant1: id, participant2: loggedInUser._id },
+            ],
+        } as any);
+
+        if (chat) {
+            await Message.updateMany({ chat: chat._id, receiver: loggedInUser._id, isRead: false } as any, { $set: { isRead: true, readAt: new Date() } } as any);
+
+            if (chat.participant1?.toString() === loggedInUser._id.toString()) {
+                chat.unreadCountP1 = 0;
+            } else if (chat.participant2?.toString() === loggedInUser._id.toString()) {
+                chat.unreadCountP2 = 0;
+            }
+            await chat.save();
+        }
+
+        const messages = await Message.find(filter).sort({ createdAt: 1 }).skip(skip).limit(limit).lean();
+        const totalMessages = await Message.countDocuments(filter);
+        const totalPages = Math.ceil(totalMessages / limit);
+
+        return res.status(200).json({
             success: true,
-            message: "User fetched successfully",
-            user: loggedInUser,
+            message: "Messages fetched successfully",
+            messages,
+            pagination: {
+                total: totalMessages,
+                page,
+                limit,
+                totalPages,
+                hasNextPage: page < totalPages,
+                hasPrevPage: page > 1,
+            },
         });
-    } catch (error) {
-        console.error("GET CURRENT USER ERROR:", error);
-        return res.status(500).json({
-            success: false,
-            message: error instanceof Error ? error.message : "Internal Server Error",
-        });
+    } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : "Internal Server Error";
+        console.error("GET USER MESSAGES ERROR:", error);
+        return res.status(500).json({ success: false, message });
     }
 }
 
-// api/users/signup
+// POST => /api/users/register
 export async function register(req: Request, res: Response) {
     try {
         const { name, email, password } = req.body;
@@ -94,20 +166,21 @@ export async function register(req: Request, res: Response) {
             message: "User registered successfully, verify your email to login",
             user: data,
         });
-    } catch (error) {
+    } catch (error: unknown) {
         console.error("REGISTER ERROR:", error);
         if (error instanceof APIError) {
-            return res.status(error.statusCode || 500).json({ success: false, errors: { email: [error.message] } });
+            return res.status(error.statusCode || 500).json({
+                success: false,
+                errors: { email: [error.message] },
+            });
         }
 
-        return res.status(500).json({
-            success: false,
-            message: error instanceof Error ? error.message : "Internal Server Error",
-        });
+        const message = error instanceof Error ? error.message : "Internal Server Error";
+        return res.status(500).json({ success: false, message });
     }
 }
 
-// api/users/login
+// POST => /api/users/login
 export async function login(req: Request, res: Response) {
     try {
         const { email, password } = req.body;
@@ -118,11 +191,7 @@ export async function login(req: Request, res: Response) {
         }
 
         const authResponse = await auth.api.signInEmail({
-            body: {
-                email,
-                password,
-                rememberMe: true,
-            },
+            body: { email, password, rememberMe: true },
             asResponse: true,
         });
 
@@ -133,8 +202,8 @@ export async function login(req: Request, res: Response) {
         if (authResponse.status === 403) {
             return res.status(403).json({ success: false, errors: { email: ["Email not verified, please verify your email to login"] } });
         }
+
         authResponse.headers.forEach((value, key) => {
-            // Express handles Set-Cookie specially when value is array/string
             res.setHeader(key, value);
         });
 
@@ -142,60 +211,71 @@ export async function login(req: Request, res: Response) {
             success: true,
             message: "User logged in successfully",
         });
-    } catch (error) {
+    } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : "Internal Server Error";
         console.error("LOGIN ERROR:", error);
-        return res.status(500).json({ success: false, message: error instanceof Error ? error.message : "Internal Server Error" });
+        return res.status(500).json({ success: false, message });
     }
 }
 
-// Edit user profile
-// PATCH => api/users
+// PATCH => /api/users
 export async function editProfile(req: Request, res: Response) {
     try {
         const { name } = req.body;
-        // const profileImage = req.filter;
-
-        // if (!result.success) {
-        //     return res.status(400).json({ success: false, error: flattenError(result.error).fieldErrors });
-        // }
 
         await auth.api.updateUser({
-            body: {
-                name,
-            },
+            body: { name },
         });
 
-        res.status(200).json({
+        return res.status(200).json({
             success: true,
             message: "User updated successfully",
         });
-    } catch (error: any) {
-        res.status(error.statusCode || 500).json({
-            success: false,
-            message: error.message || "Something went wrong",
-        });
+    } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : "Something went wrong";
+        return res.status(500).json({ success: false, message });
     }
 }
 
-// DELETE => api/users
-// export async function deleteUser(req: Request, res: Response) {
-//     try {
-//         await auth.api.deleteUser({
-//             body: {
-//                 callbackURL: "/",
-//             },
-//         });
-//         res.status(200).json({
-//             success: true,
-//             message: "User deleted successfully",
-//         });
-//     } catch (error) {
-//         if (error instanceof Error) {
-//             console.log(error);
-//             res.status(500).json({
-//                 success: false,
-//                 message: error.message || "Something went wrong",
-//             });
-//         }
-//     }
-// }
+// POST => /api/users/profile-image
+export async function uploadProfileImage(req: Request, res: Response) {
+    try {
+        const loggedInUser = req.user;
+        const file = req.file as Express.Multer.File | undefined;
+
+        if (!loggedInUser?._id) {
+            return res.status(401).json({ success: false, message: "Unauthorized" });
+        }
+
+        if (!file) {
+            return res.status(400).json({ success: false, message: "No file uploaded" });
+        }
+
+        // upload the new profile image to vercel blob storage
+        const blob = await put(`profile-images/${file.originalname}`, file.buffer, {
+            access: "public",
+            addRandomSuffix: true,
+            contentType: file.mimetype,
+        });
+
+        // delete the old profile image from vercel blob storage (check if oldProfileImage exists)
+        const oldProfileImage = loggedInUser.profileImage || (typeof req.body.oldProfileImage === "string" ? req.body.oldProfileImage : "");
+        if (oldProfileImage) {
+            try {
+                await del(oldProfileImage);
+            } catch (blobDeleteError) {
+                console.error("OLD PROFILE IMAGE DELETE ERROR:", blobDeleteError);
+            }
+        }
+
+        return res.status(200).json({
+            success: true,
+            message: "Profile image uploaded successfully",
+            profileImageUrl: blob.url,
+        });
+    } catch (error: unknown) {
+        console.error("UPLOAD PROFILE IMAGE ERROR:", error);
+        const message = error instanceof Error ? error.message : "Something went wrong";
+        return res.status(500).json({ success: false, message });
+    }
+}

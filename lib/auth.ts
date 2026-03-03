@@ -12,93 +12,93 @@ const db = client.db();
 const resend = new Resend(process.env.RESEND_API_KEY!);
 
 export const auth = betterAuth({
-    baseURL: process.env.BETTER_AUTH_URL!,
-    database: mongodbAdapter(db),
+  baseURL: process.env.BETTER_AUTH_URL!,
+  database: mongodbAdapter(db),
 
-    trustedOrigins: [process.env.FRONTEND_URL!],
+  trustedOrigins: [process.env.FRONTEND_URL!],
 
-    emailAndPassword: {
-        enabled: true,
-        requireEmailVerification: true,
+  emailAndPassword: {
+    enabled: true,
+    requireEmailVerification: true,
+  },
+
+  emailVerification: {
+    sendOnSignUp: true,
+    sendOnSignIn: true,
+    sendVerificationEmail: async ({ user, url, token }, request) => {
+      console.log({ url });
+      const { data, error } = await resend.emails.send({
+        from: "Chatify <onboarding@resend.dev>",
+        to: user.email,
+        subject: "Verify your email address",
+        react: EmailVerificationTemplate({ name: user.name, email: user.email, verificationUrl: url }),
+      });
+      if (error) {
+        console.log("Error while sending verification email", error);
+      }
     },
+  },
 
-    emailVerification: {
-        sendOnSignUp: true,
-        sendOnSignIn: true,
-        sendVerificationEmail: async ({ user, url, token }, request) => {
-            console.log({ url });
-            const { data, error } = await resend.emails.send({
-                from: "Chatify <onboarding@resend.dev>",
-                to: user.email,
-                subject: "Verify your email address",
-                react: EmailVerificationTemplate({ name: user.name, email: user.email, verificationUrl: url }),
-            });
-            if (error) {
-                console.log("Error while sending verification email", error);
-            }
-        },
-    },
-
-    databaseHooks: {
-        user: {
-            create: {
-                after: async (user) => {
-                    try {
-                        await User.create({
-                            name: user.name,
-                            email: user.email,
-                            emailVerified: user.emailVerified,
-                        });
-                    } catch (error) {
-                        console.log("Error while adding user to user collection", error);
-                    }
-                },
-            },
-            update: {
-                after: async (user) => {
-                    try {
-                        await User.updateOne(
-                            { email: user.email },
-                            {
-                                name: user.name,
-                                email: user.email,
-                                emailVerified: user.emailVerified,
-                                profileImage: user.image,
-                            },
-                        );
-                    } catch (error) {
-                        console.log("Error while updating user in user collection", error);
-                    }
-                },
-            },
-            delete: {
-                after: async (user) => {
-                    try {
-                        await User.deleteOne({ email: user.email });
-                    } catch (error) {
-                        console.log("Error while deleting user from user collection", error);
-                    }
-                },
-            },
-        },
-    },
+  databaseHooks: {
     user: {
-        deleteUser: {
-            enabled: true,
-
-            // you can enable this if you want to
-            sendDeleteAccountVerification: async ({ user, url, token }) => {
-                console.log({ url: url });
-                const { data, error } = await resend.emails.send({
-                    from: "Chatify <onboarding@resend.dev>",
-                    to: user.email,
-                    subject: "Delete your account",
-                    react: DeleteAccountTemplate({ name: user.name, email: user.email, deleteUrl: url }),
-                });
-                if (error) {
-                    console.log("Error while sending delete account verification email", error);
-                }
-            },
+      create: {
+        after: async (user) => {
+          try {
+            await User.create({
+              name: user.name,
+              email: user.email,
+              emailVerified: user.emailVerified,
+            });
+          } catch (error) {
+            console.log("Error while adding user to user collection", error);
+          }
         },
+      },
+      update: {
+        after: async (user) => {
+          try {
+            await User.updateOne(
+              { email: user.email },
+              {
+                name: user.name,
+                email: user.email,
+                emailVerified: user.emailVerified,
+                profileImage: user.image,
+              },
+            );
+          } catch (error) {
+            console.log("Error while updating user in user collection", error);
+          }
+        },
+      },
+      delete: {
+        after: async (user) => {
+          try {
+            await User.deleteOne({ email: user.email });
+          } catch (error) {
+            console.log("Error while deleting user from user collection", error);
+          }
+        },
+      },
     },
+  },
+  user: {
+    deleteUser: {
+      enabled: true,
+
+      // you can enable this if you want to
+      sendDeleteAccountVerification: async ({ user, url, token }) => {
+        console.log({ url: url });
+        const { data, error } = await resend.emails.send({
+          from: "Chatify <onboarding@resend.dev>",
+          to: user.email,
+          subject: "Delete your account",
+          react: DeleteAccountTemplate({ name: user.name, email: user.email, deleteUrl: url }),
+        });
+        if (error) {
+          console.log("Error while sending delete account verification email", error);
+        }
+      },
+    },
+  },
 });
