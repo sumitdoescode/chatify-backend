@@ -56,7 +56,7 @@ export async function sendMessage(req: Request, res: Response) {
 
         let imageUrl: string | undefined;
         if (file) {
-            const blob = await put(`messages${file.originalname}`, file.buffer, {
+            const blob = await put(`messages/${file.originalname}`, file.buffer, {
                 access: "public",
                 addRandomSuffix: true,
                 contentType: file.mimetype,

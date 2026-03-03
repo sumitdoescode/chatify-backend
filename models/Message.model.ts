@@ -49,4 +49,6 @@ const messageSchema = new Schema<IMessage>(
     },
 );
 
+// remove the message image from vercel blob storage before message deletion
+
 export const Message = model<IMessage>("Message", messageSchema);

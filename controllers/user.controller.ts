@@ -42,107 +42,6 @@ export async function getCurrentUser(req: Request, res: Response) {
     }
 }
 
-// GET => /api/users/:id
-export async function getUserById(req: Request, res: Response) {
-    try {
-        const { id } = req.params;
-        if (!id || !isValidObjectId(id)) {
-            return res.status(400).json({ success: false, message: "Invalid user id" });
-        }
-
-        const user = await User.findById(id).select("_id name email profileImage");
-        if (!user) {
-            return res.status(404).json({ success: false, message: "User not found" });
-        }
-
-        return res.status(200).json({
-            success: true,
-            message: "User fetched successfully",
-            user,
-        });
-    } catch (error: unknown) {
-        const message = error instanceof Error ? error.message : "Internal Server Error";
-        console.error("GET USER BY ID ERROR:", error);
-        return res.status(500).json({ success: false, message });
-    }
-}
-
-// GET => /api/users/:id/messages
-export async function getUserMessages(req: Request, res: Response) {
-    try {
-        const { id } = req.params;
-        const loggedInUser = req.user;
-
-        if (!loggedInUser?._id) {
-            return res.status(401).json({ success: false, message: "Unauthorized" });
-        }
-
-        if (!id || !isValidObjectId(id)) {
-            return res.status(400).json({ success: false, message: "Invalid user id" });
-        }
-
-        if (loggedInUser._id.toString() === id) {
-            return res.status(400).json({ success: false, message: "Cannot fetch messages with yourself" });
-        }
-
-        const user = await User.exists({ _id: id });
-        if (!user) {
-            return res.status(404).json({ success: false, message: "User not found" });
-        }
-
-        const page = Math.max(1, Number(req.query.page) || 1);
-        const limit = Math.min(100, Math.max(1, Number(req.query.limit) || 50));
-        const skip = (page - 1) * limit;
-
-        const filter: any = {
-            $or: [
-                { sender: id, receiver: loggedInUser._id },
-                { sender: loggedInUser._id, receiver: id },
-            ],
-        };
-
-        const chat = await Chat.findOne({
-            $or: [
-                { participant1: loggedInUser._id, participant2: id },
-                { participant1: id, participant2: loggedInUser._id },
-            ],
-        } as any);
-
-        if (chat) {
-            await Message.updateMany({ chat: chat._id, receiver: loggedInUser._id, isRead: false } as any, { $set: { isRead: true, readAt: new Date() } } as any);
-
-            if (chat.participant1?.toString() === loggedInUser._id.toString()) {
-                chat.unreadCountP1 = 0;
-            } else if (chat.participant2?.toString() === loggedInUser._id.toString()) {
-                chat.unreadCountP2 = 0;
-            }
-            await chat.save();
-        }
-
-        const messages = await Message.find(filter).sort({ createdAt: 1 }).skip(skip).limit(limit).lean();
-        const totalMessages = await Message.countDocuments(filter);
-        const totalPages = Math.ceil(totalMessages / limit);
-
-        return res.status(200).json({
-            success: true,
-            message: "Messages fetched successfully",
-            messages,
-            pagination: {
-                total: totalMessages,
-                page,
-                limit,
-                totalPages,
-                hasNextPage: page < totalPages,
-                hasPrevPage: page > 1,
-            },
-        });
-    } catch (error: unknown) {
-        const message = error instanceof Error ? error.message : "Internal Server Error";
-        console.error("GET USER MESSAGES ERROR:", error);
-        return res.status(500).json({ success: false, message });
-    }
-}
-
 // POST => /api/users/register
 export async function register(req: Request, res: Response) {
     try {
@@ -214,25 +113,6 @@ export async function login(req: Request, res: Response) {
     } catch (error: unknown) {
         const message = error instanceof Error ? error.message : "Internal Server Error";
         console.error("LOGIN ERROR:", error);
-        return res.status(500).json({ success: false, message });
-    }
-}
-
-// PATCH => /api/users
-export async function editProfile(req: Request, res: Response) {
-    try {
-        const { name } = req.body;
-
-        await auth.api.updateUser({
-            body: { name },
-        });
-
-        return res.status(200).json({
-            success: true,
-            message: "User updated successfully",
-        });
-    } catch (error: unknown) {
-        const message = error instanceof Error ? error.message : "Something went wrong";
         return res.status(500).json({ success: false, message });
     }
 }
