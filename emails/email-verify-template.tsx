@@ -38,9 +38,9 @@ const EmailVerificationTemplate = ({ name = "there", email = "example@gmail.com"
                         </Section>
 
                         {/* Footer */}
-                        <Section className="border-t border-gray-200 pt-[32px] mt-[48px]">
-                            <Text className="text-[12px] text-gray-500 text-center m-0 mb-[8px]">© 2026 Your Company Name. All rights reserved.</Text>
-                            <Text className="text-[12px] text-gray-500 text-center m-0 mb-[8px]">123 Business Street, Suite 100, City, State 12345</Text>
+                        <Section className="border-t border-gray-200 pt-8 mt-12">
+                            <Text className="text-[12px] text-gray-500 text-center m-0 mb-2">© 2026 Your Company Name. All rights reserved.</Text>
+                            <Text className="text-[12px] text-gray-500 text-center m-0 mb-2">123 Business Street, Suite 100, City, State 12345</Text>
                             <Text className="text-[12px] text-gray-500 text-center m-0">
                                 <a href="#" className="text-gray-500 no-underline">
                                     Unsubscribe
