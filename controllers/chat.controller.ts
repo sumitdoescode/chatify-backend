@@ -123,18 +123,31 @@ export async function getAllChats(req: Request, res: Response) {
                     _id: 1,
                     name: "$otherParticipant.name",
                     email: "$otherParticipant.email",
+                    otherParticipantId: "$otherParticipant._id",
                     profileImage: "$otherParticipant.profileImage",
-                    lastMessage: "$lastMessage.text",
+                    lastMessage: "$lastMessage",
                     createdAt: "$lastMessage.createdAt",
                     unreadCount: 1,
                 },
             },
         ]);
 
+        const chatsWithPreview = chats.map((chat: any) => {
+            const text = typeof chat?.lastMessage?.text === "string" ? chat.lastMessage.text.trim() : "";
+            const image = typeof chat?.lastMessage?.image === "string" ? chat.lastMessage.image.trim() : "";
+            const isImageOnly = Boolean(image) && !text;
+
+            return {
+                ...chat,
+                lastMessage: text || (isImageOnly ? "Image" : ""),
+                lastMessageIsImage: isImageOnly,
+            };
+        });
+
         return res.status(200).json({
             success: true,
             message: "Chats fetched successfully",
-            chats,
+            chats: chatsWithPreview,
         });
     } catch (error: unknown) {
         const message = error instanceof Error ? error.message : "Something went wrong";

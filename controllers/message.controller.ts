@@ -6,6 +6,7 @@ import { User } from "../models/User.model";
 import { Message } from "../models/Message.model";
 import { Chat } from "../models/Chat.model";
 import { put } from "@vercel/blob";
+import { io } from "../server";
 
 // POST => /api/messages/:id , id => receiver user id
 export async function sendMessage(req: Request, res: Response) {
@@ -80,6 +81,19 @@ export async function sendMessage(req: Request, res: Response) {
             image: result.data.image,
             isRead: false,
         } as any);
+
+        const payload = {
+            _id: message._id.toString(),
+            chat: chat._id.toString(),
+            sender: sender._id.toString(),
+            receiver: receiver._id.toString(),
+            text: message.text,
+            image: message.image,
+            createdAt: message.createdAt,
+        };
+
+        io.to(sender._id.toString()).emit("message:new", payload);
+        io.to(receiver._id.toString()).emit("message:new", payload);
 
         chat.lastMessage = message._id as any;
         const receiverIdString = receiver._id.toString();

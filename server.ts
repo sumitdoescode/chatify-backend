@@ -11,7 +11,7 @@ dns.setServers(["1.1.1.1", "1.0.0.1"]); // Cloudflare DNS
 const httpServer = http.createServer(app);
 
 // web socket server
-const io = new Server(httpServer, {
+export const io = new Server(httpServer, {
     cors: {
         origin: process.env.FRONTEND_URL,
         credentials: true, // enables us to send cookies in the socket connection
@@ -23,15 +23,15 @@ io.use(socketAuthMiddleware);
 const userSocketMap: Record<string, string[]> = {};
 
 io.on("connection", (socket) => {
-    console.log("a user is connected", (socket as any).user);
+    const userId = (socket as any).userId as string;
+    socket.join(userId);
 
-    const userId = (socket as any).user._id;
     if (!userSocketMap[userId]) {
         userSocketMap[userId] = [];
     }
     userSocketMap[userId].push(socket.id);
 
-    io.emit("getOnlineUsers", userSocketMap);
+    io.emit("getOnlineUsers", Object.keys(userSocketMap));
 
     // when socket disconnects
     socket.on("disconnect", () => {
@@ -58,7 +58,7 @@ io.on("connection", (socket) => {
         const PORT = process.env.PORT || 8000;
 
         httpServer.listen(PORT, () => {
-            console.log(`Server started on port ${PORT}`);
+            console.log(`Server started listening on ${PORT}`);
         });
     } catch (error) {
         console.error("SERVER START ERROR:", error);
