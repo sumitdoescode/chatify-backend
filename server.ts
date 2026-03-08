@@ -55,7 +55,7 @@ io.on("connection", (socket) => {
     try {
         await connectDB();
         // start listening to port
-        const PORT = process.env.PORT || 8000;
+        const PORT = process.env.PORT || 8080;
 
         httpServer.listen(PORT, () => {
             console.log(`Server started listening on ${PORT}`);
