@@ -4,7 +4,8 @@
     "type": "module",
     "private": true,
     "scripts": {
-        "dev": "bun --watch --env-file=.env.development server.ts"
+        "dev": "bun --watch --env-file=.env.development server.ts",
+        "start": "bun --env-file=.env server.ts"
     },
     "devDependencies": {
         "@types/bun": "latest",
