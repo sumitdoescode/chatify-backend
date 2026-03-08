@@ -18,7 +18,6 @@ export async function socketAuthMiddleware(socket: Socket, next: (err?: Error) =
             return next(new Error("Unauthorized"));
         }
 
-        console.log({ user });
         (socket as any).user = user;
         (socket as any).userId = user._id.toString();
         next();

@@ -104,6 +104,10 @@ export async function sendMessage(req: Request, res: Response) {
         }
         await chat.save();
 
+        const receiverUnreadCount = chat.participant1?.toString() === receiver._id.toString() ? chat.unreadCountP1 || 0 : chat.unreadCountP2 || 0;
+
+        io.to(receiver._id.toString()).emit("unread:update", { chatId: chat._id.toString(), unreadCount: receiverUnreadCount });
+
         return res.status(200).json({
             success: true,
             message: "Message sent successfully",

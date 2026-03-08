@@ -6,6 +6,7 @@ import mongoose from "mongoose";
 import type { IMessage } from "../models/Message.model";
 import { del } from "@vercel/blob";
 import { User } from "../models/User.model";
+import { io } from "../server";
 
 // POST => /api/chats/resolve
 export async function resolveChat(req: Request, res: Response) {
@@ -278,9 +279,11 @@ export async function getChatMessages(req: Request, res: Response) {
         }
         await chatExists.save();
 
+        io.to(loggedInUser!._id.toString()).emit("unread:update", { chatId: chatExists._id.toString(), unreadCount: 0 });
+
         const messages = (await Message.find({ chat: chatId } as any)
             .select("-chat")
-            .sort({ createdAt: 1 })
+            .sort({ createdAt: -1 })
             .skip(skip)
             .limit(limit)
             .lean()) as IMessage[];
@@ -290,7 +293,7 @@ export async function getChatMessages(req: Request, res: Response) {
 
         return res.status(200).json({
             success: true,
-            messages,
+            messages: messages.reverse(),
             pagination: {
                 total,
                 page,
