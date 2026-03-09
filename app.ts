@@ -6,6 +6,7 @@ import cookieParser from "cookie-parser";
 import messageRouter from "./routes/message.routes.ts";
 import userRouter from "./routes/user.routes.ts";
 import chatRouter from "./routes/chat.routes.ts";
+import healthCheckRouter from "./routes/healthcheck.routes.ts";
 
 const app = express();
 
@@ -28,5 +29,6 @@ app.use(express.json());
 app.use("/api/users", userRouter);
 app.use("/api/messages", messageRouter);
 app.use("/api/chats", chatRouter);
+app.use("/api/healthcheck", healthCheckRouter);
 
 export default app;
