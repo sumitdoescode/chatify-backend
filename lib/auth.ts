@@ -31,7 +31,7 @@ export const auth = betterAuth({
         sendVerificationEmail: async ({ user, url, token }, request) => {
             console.log({ url });
             const { data, error } = await resend.emails.send({
-                from: "Chatify <onboarding@resend.dev>",
+                from: `Chatify <${process.env.EMAIL_FROM}>`,
                 to: user.email,
                 subject: "Verify your email address",
                 react: EmailVerificationTemplate({ name: user.name, email: user.email, verificationUrl: url }),
@@ -121,7 +121,7 @@ export const auth = betterAuth({
             sendDeleteAccountVerification: async ({ user, url, token }) => {
                 console.log({ url: url });
                 const { data, error } = await resend.emails.send({
-                    from: "Chatify <onboarding@resend.dev>",
+                    from: `Chatify <${process.env.EMAIL_FROM}>`,
                     to: user.email,
                     subject: "Delete your account",
                     react: DeleteAccountTemplate({ name: user.name, email: user.email, deleteUrl: url }),
