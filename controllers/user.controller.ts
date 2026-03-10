@@ -102,9 +102,19 @@ export async function login(req: Request, res: Response) {
             return res.status(403).json({ success: false, errors: { email: ["Email not verified, please verify your email to login"] } });
         }
 
+        const setCookies = authResponse.headers.getSetCookie?.() ?? authResponse.headers.getAll?.("set-cookie") ?? [];
+
         authResponse.headers.forEach((value, key) => {
+            if (key.toLowerCase() === "set-cookie") {
+                return;
+            }
+
             res.setHeader(key, value);
         });
+
+        if (setCookies.length) {
+            res.setHeader("Set-Cookie", setCookies);
+        }
 
         return res.status(200).json({
             success: true,
