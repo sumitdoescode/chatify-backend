@@ -20,10 +20,8 @@ export async function getAllUsers(req: Request, res: Response) {
             message: "Users fetched successfully",
             users,
         });
-    } catch (error: unknown) {
-        const message = error instanceof Error ? error.message : "Internal Server Error";
-        console.error("GET ALL USERS ERROR:", error);
-        return res.status(500).json({ success: false, message });
+    } catch (error) {
+        return res.status(500).json({ success: false, message: error instanceof Error ? error.message : "Internal Server Error" });
     }
 }
 
@@ -35,10 +33,8 @@ export async function getCurrentUser(req: Request, res: Response) {
             message: "User fetched successfully",
             user: req.user,
         });
-    } catch (error: unknown) {
-        const message = error instanceof Error ? error.message : "Internal Server Error";
-        console.error("GET CURRENT USER ERROR:", error);
-        return res.status(500).json({ success: false, message });
+    } catch (error) {
+        return res.status(500).json({ success: false, message: error instanceof Error ? error.message : "Internal Server Error" });
     }
 }
 
@@ -66,16 +62,13 @@ export async function register(req: Request, res: Response) {
             user: data,
         });
     } catch (error: unknown) {
-        console.error("REGISTER ERROR:", error);
         if (error instanceof APIError) {
             return res.status(error.statusCode || 500).json({
                 success: false,
                 errors: { email: [error.message] },
             });
         }
-
-        const message = error instanceof Error ? error.message : "Internal Server Error";
-        return res.status(500).json({ success: false, message });
+        return res.status(500).json({ success: false, message: error instanceof Error ? error.message : "Internal Server Error" });
     }
 }
 
@@ -121,9 +114,7 @@ export async function login(req: Request, res: Response) {
             message: "User logged in successfully",
         });
     } catch (error: unknown) {
-        const message = error instanceof Error ? error.message : "Internal Server Error";
-        console.error("LOGIN ERROR:", error);
-        return res.status(500).json({ success: false, message });
+        return res.status(500).json({ success: false, message: error instanceof Error ? error.message : "Internal Server Error" });
     }
 }
 
@@ -163,9 +154,7 @@ export async function uploadProfileImage(req: Request, res: Response) {
             message: "Profile image uploaded successfully",
             profileImageUrl: blob.url,
         });
-    } catch (error: unknown) {
-        console.error("UPLOAD PROFILE IMAGE ERROR:", error);
-        const message = error instanceof Error ? error.message : "Something went wrong";
-        return res.status(500).json({ success: false, message });
+    } catch (error) {
+        return res.status(500).json({ success: false, message: error instanceof Error ? error.message : "Something went wrong" });
     }
 }

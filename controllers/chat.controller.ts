@@ -54,10 +54,8 @@ export async function resolveChat(req: Request, res: Response) {
             chatId: chat._id,
             chat,
         });
-    } catch (error: unknown) {
-        const message = error instanceof Error ? error.message : "Internal Server Error";
-        console.error("RESOLVE CHAT ERROR:", error);
-        return res.status(500).json({ success: false, message });
+    } catch (error) {
+        return res.status(500).json({ success: false, message: error instanceof Error ? error.message : "Internal Server Error" });
     }
 }
 
@@ -150,10 +148,8 @@ export async function getAllChats(req: Request, res: Response) {
             message: "Chats fetched successfully",
             chats: chatsWithPreview,
         });
-    } catch (error: unknown) {
-        const message = error instanceof Error ? error.message : "Something went wrong";
-        console.error("GET ALL CHATS ERROR:", error);
-        return res.status(500).json({ success: false, message });
+    } catch (error) {
+        return res.status(500).json({ success: false, message: error instanceof Error ? error.message : "Something went wrong" });
     }
 }
 
@@ -240,10 +236,8 @@ export async function getChatById(req: Request, res: Response) {
             message: "Chat fetched successfully",
             chat: chat[0],
         });
-    } catch (error: unknown) {
-        const message = error instanceof Error ? error.message : "Something went wrong";
-        console.error("GET CHAT BY ID ERROR:", error);
-        return res.status(500).json({ success: false, message });
+    } catch (error) {
+        return res.status(500).json({ success: false, message: error instanceof Error ? error.message : "Something went wrong" });
     }
 }
 
@@ -303,10 +297,8 @@ export async function getChatMessages(req: Request, res: Response) {
                 hasPrev: page > 1,
             },
         });
-    } catch (error: unknown) {
-        const message = error instanceof Error ? error.message : "Internal Server Error";
-        console.error("GET CHAT MESSAGES ERROR:", error);
-        return res.status(500).json({ success: false, message });
+    } catch (error) {
+        return res.status(500).json({ success: false, message: error instanceof Error ? error.message : "Internal Server Error" });
     }
 }
 
@@ -343,10 +335,8 @@ export async function markChatAsRead(req: Request, res: Response) {
             success: true,
             message: "Chat marked as read",
         });
-    } catch (error: unknown) {
-        const message = error instanceof Error ? error.message : "Internal Server Error";
-        console.error("MARK CHAT AS READ ERROR:", error);
-        return res.status(500).json({ success: false, message });
+    } catch (error) {
+        return res.status(500).json({ success: false, message: error instanceof Error ? error.message : "Internal Server Error" });
     }
 }
 
@@ -393,9 +383,7 @@ export async function deleteChat(req: Request, res: Response) {
             success: true,
             message: "Chat deleted successfully",
         });
-    } catch (error: unknown) {
-        console.error("DELETE CHAT ERROR:", error);
-        const message = error instanceof Error ? error.message : "Something went wrong";
-        return res.status(500).json({ success: false, message });
+    } catch (error) {
+        return res.status(500).json({ success: false, message: error instanceof Error ? error.message : "Something went wrong" });
     }
 }

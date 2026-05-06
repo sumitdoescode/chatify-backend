@@ -112,9 +112,7 @@ export async function sendMessage(req: Request, res: Response) {
             success: true,
             message: "Message sent successfully",
         });
-    } catch (error: unknown) {
-        console.error("SEND MESSAGE ERROR:", error);
-        const message = error instanceof Error ? error.message : "Internal Server Error";
-        return res.status(500).json({ success: false, message });
+    } catch (error) {
+        return res.status(500).json({ success: false, message: error instanceof Error ? error.message : "Internal Server Error" });
     }
 }
