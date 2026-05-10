@@ -2,23 +2,50 @@ import type { Request, Response } from "express";
 import { Register, Login } from "../schemas/user.schema.ts";
 import { flattenError } from "zod";
 import { auth } from "../lib/auth.ts";
-import { User } from "../models/User.model.ts";
 import { APIError } from "better-auth";
+import { fromNodeHeaders } from "better-auth/node";
 import { isValidObjectId } from "mongoose";
 import { Message } from "../models/Message.model.ts";
 import { Chat } from "../models/Chat.model.ts";
 import { put, del } from "@vercel/blob";
+import { getDB } from "../lib/db.ts";
+import { ObjectId } from "mongodb";
 
 // GET => /api/users
 export async function getAllUsers(req: Request, res: Response) {
     try {
-        const loggedInUser = req.user;
-        const users = await User.find({ _id: { $ne: loggedInUser?._id } }).select("name email profileImage");
+        if (!req.user?.id) {
+            return res.status(401).json({ success: false, message: "Unauthorized" });
+        }
+
+        const loggedInUserId = req.user.id.toString();
+        const db = getDB();
+        if (!db) {
+            return res.status(500).json({ success: false, message: "Database connection failed" });
+        }
+        const users = await db
+            .collection("user")
+            .find(
+                {
+                    _id: { $ne: new ObjectId(loggedInUserId) },
+                },
+                {
+                    projection: {
+                        name: 1,
+                        email: 1,
+                        image: 1,
+                    },
+                },
+            )
+            .toArray();
 
         return res.status(200).json({
             success: true,
             message: "Users fetched successfully",
-            users,
+            users: users.map((user) => ({
+                ...user,
+                profileImage: user.image ?? null,
+            })),
         });
     } catch (error) {
         return res.status(500).json({ success: false, message: error instanceof Error ? error.message : "Internal Server Error" });
@@ -47,27 +74,24 @@ export async function register(req: Request, res: Response) {
             return res.status(400).json({ success: false, errors: flattenError(result.error).fieldErrors });
         }
 
-        const data = await auth.api.signUpEmail({
-            body: {
-                name,
-                email,
-                password,
-                callbackURL: `${process.env.FRONTEND_URL}/login`,
-            },
-        });
-
-        return res.status(201).json({
-            success: true,
-            message: "User registered successfully, verify your email to login",
-            user: data,
-        });
-    } catch (error: unknown) {
-        if (error instanceof APIError) {
-            return res.status(error.statusCode || 500).json({
+        try {
+            const authResponse = await auth.api.signUpEmail({
+                body: {
+                    name,
+                    email,
+                    password,
+                    callbackURL: `${process.env.FRONTEND_URL}/login`,
+                },
+                headers: fromNodeHeaders(req.headers),
+                asResponse: true,
+            });
+        } catch (error) {
+            return res.status(400).json({
                 success: false,
-                errors: { email: [error.message] },
+                message: error instanceof Error ? error.message : "Error while registering user",
             });
         }
+    } catch (error: unknown) {
         return res.status(500).json({ success: false, message: error instanceof Error ? error.message : "Internal Server Error" });
     }
 }
@@ -82,39 +106,20 @@ export async function login(req: Request, res: Response) {
             return res.status(400).json({ success: false, error: flattenError(result.error).fieldErrors });
         }
 
-        const authResponse = await auth.api.signInEmail({
-            body: { email, password, rememberMe: true },
-            asResponse: true,
-        });
-
-        if (authResponse.status === 401) {
-            return res.status(401).json({ success: false, errors: { password: ["Invalid credentials"] } });
+        try {
+            const authResponse = await auth.api.signInEmail({
+                body: { email, password, rememberMe: true },
+                headers: fromNodeHeaders(req.headers),
+                asResponse: true,
+            });
+        } catch (error) {
+            return res.status(400).json({
+                success: false,
+                message: error instanceof Error ? error.message : "Error while logging in user",
+            });
         }
-
-        if (authResponse.status === 403) {
-            return res.status(403).json({ success: false, errors: { email: ["Email not verified, please verify your email to login"] } });
-        }
-
-        const setCookies = authResponse.headers.getSetCookie?.() ?? authResponse.headers.getAll?.("set-cookie") ?? [];
-
-        authResponse.headers.forEach((value, key) => {
-            if (key.toLowerCase() === "set-cookie") {
-                return;
-            }
-
-            res.setHeader(key, value);
-        });
-
-        if (setCookies.length) {
-            res.setHeader("Set-Cookie", setCookies);
-        }
-
-        return res.status(200).json({
-            success: true,
-            message: "User logged in successfully",
-        });
-    } catch (error: unknown) {
-        return res.status(500).json({ success: false, message: error instanceof Error ? error.message : "Internal Server Error" });
+    } catch (error) {
+        return res.status(500).json({ success: false, message: error instanceof Error ? error.message : "Error while logging in user" });
     }
 }
 

@@ -27,8 +27,8 @@ app.use(express.json());
 
 // custom api routes
 app.use("/api/users", userRouter);
-app.use("/api/messages", messageRouter);
-app.use("/api/chats", chatRouter);
+// app.use("/api/messages", messageRouter);
+// app.use("/api/chats", chatRouter);
 app.use("/api/healthcheck", healthCheckRouter);
 
 export default app;

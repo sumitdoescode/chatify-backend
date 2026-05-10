@@ -14,11 +14,9 @@ const chatSchema = new Schema<IChat>(
     {
         participant1: {
             type: Schema.Types.ObjectId,
-            ref: "User",
         },
         participant2: {
             type: Schema.Types.ObjectId,
-            ref: "User",
         },
         lastMessage: {
             type: Schema.Types.ObjectId,

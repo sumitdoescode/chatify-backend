@@ -17,3 +17,5 @@ export const connectDB = async () => {
         }
     }
 };
+
+export const getDB = () => mongoose.connection.db;

@@ -2,17 +2,18 @@ import type { Request, Response } from "express";
 import { sendMessageSchema } from "../schemas/message.schema";
 import { flattenError } from "zod";
 import { isValidObjectId } from "mongoose";
-import { User } from "../models/User.model";
 import { Message } from "../models/Message.model";
 import { Chat } from "../models/Chat.model";
 import { put } from "@vercel/blob";
 import { io } from "../server";
+import { getDB } from "../lib/db";
+import { ObjectId } from "mongodb";
 
 // POST => /api/messages/:id , id => receiver user id
 export async function sendMessage(req: Request, res: Response) {
     try {
         const sender = req.user;
-        const receiverId = req.params.id;
+        const receiverId = typeof req.params.id === "string" ? req.params.id : undefined;
 
         if (!sender?._id) {
             return res.status(401).json({ success: false, message: "Unauthorized" });
@@ -26,7 +27,12 @@ export async function sendMessage(req: Request, res: Response) {
             return res.status(400).json({ success: false, message: "Cannot send message to yourself" });
         }
 
-        const receiver = await User.findById(receiverId);
+        const db = getDB();
+        if (!db) {
+            return res.status(500).json({ success: false, message: "Database connection failed" });
+        }
+
+        const receiver = await db.collection("user").findOne({ _id: new ObjectId(receiverId) }, { projection: { _id: 1 } });
         if (!receiver) {
             return res.status(404).json({ success: false, message: "Receiver not found" });
         }

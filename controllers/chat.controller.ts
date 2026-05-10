@@ -5,8 +5,9 @@ import { Message } from "../models/Message.model";
 import mongoose from "mongoose";
 import type { IMessage } from "../models/Message.model";
 import { del } from "@vercel/blob";
-import { User } from "../models/User.model";
 import { io } from "../server";
+import { getDB } from "../lib/db";
+import { ObjectId } from "mongodb";
 
 // POST => /api/chats/resolve
 export async function resolveChat(req: Request, res: Response) {
@@ -26,7 +27,12 @@ export async function resolveChat(req: Request, res: Response) {
             return res.status(400).json({ success: false, message: "Cannot create chat with yourself" });
         }
 
-        const targetUser = await User.findById(userId).select("_id");
+        const db = getDB();
+        if (!db) {
+            return res.status(500).json({ success: false, message: "Database connection failed" });
+        }
+
+        const targetUser = await db.collection("user").findOne({ _id: new ObjectId(userId) }, { projection: { _id: 1 } });
         if (!targetUser) {
             return res.status(404).json({ success: false, message: "User not found" });
         }
@@ -89,11 +95,11 @@ export async function getAllChats(req: Request, res: Response) {
             },
             {
                 $lookup: {
-                    from: "users",
+                    from: "user",
                     localField: "otherParticipant",
                     foreignField: "_id",
                     as: "otherParticipant",
-                    pipeline: [{ $project: { name: 1, email: 1, profileImage: 1 } }],
+                    pipeline: [{ $project: { name: 1, email: 1, image: 1 } }],
                 },
             },
             {
@@ -123,7 +129,7 @@ export async function getAllChats(req: Request, res: Response) {
                     name: "$otherParticipant.name",
                     email: "$otherParticipant.email",
                     otherParticipantId: "$otherParticipant._id",
-                    profileImage: "$otherParticipant.profileImage",
+                    profileImage: "$otherParticipant.image",
                     lastMessage: "$lastMessage",
                     createdAt: "$lastMessage.createdAt",
                     unreadCount: 1,
@@ -190,11 +196,11 @@ export async function getChatById(req: Request, res: Response) {
             },
             {
                 $lookup: {
-                    from: "users",
+                    from: "user",
                     localField: "otherParticipant",
                     foreignField: "_id",
                     as: "otherParticipant",
-                    pipeline: [{ $project: { name: 1, email: 1, profileImage: 1 } }],
+                    pipeline: [{ $project: { name: 1, email: 1, image: 1 } }],
                 },
             },
             {

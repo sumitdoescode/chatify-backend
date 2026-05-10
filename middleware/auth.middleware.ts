@@ -1,7 +1,7 @@
 import { auth } from "../lib/auth";
 import type { Request, Response, NextFunction } from "express";
 import { fromNodeHeaders } from "better-auth/node";
-import { User } from "../models/User.model";
+import { ObjectId } from "mongodb";
 
 export async function authMiddleware(req: Request, res: Response, next: NextFunction) {
     try {
@@ -13,16 +13,17 @@ export async function authMiddleware(req: Request, res: Response, next: NextFunc
             return res.status(401).json({ success: false, message: "Unauthorized" });
         }
 
-        const user = await User.findOne({ email: session?.user?.email });
-        if (!user) {
-            return res.status(401).json({ success: false, message: "Unauthorized" });
+        if (!ObjectId.isValid(session.user.id)) {
+            return res.status(500).json({ success: false, message: "Authenticated user id is not a valid ObjectId" });
         }
 
-        req.user = user;
+        req.user = {
+            ...session.user,
+            _id: new ObjectId(session.user.id),
+            profileImage: session.user.image ?? null,
+        };
         next();
-    } catch (error: unknown) {
-        const message = error instanceof Error ? error.message : "Internal Server Error";
-        console.log(error);
-        return res.status(500).json({ success: false, message });
+    } catch (error) {
+        return res.status(500).json({ success: false, error: error instanceof Error ? error.message : "Failed to authenticate user" });
     }
 }

@@ -1,9 +1,19 @@
-import type { IUser } from "../models/User.model";
+import type { ObjectId } from "mongodb";
+
+interface AuthenticatedUser {
+  id: string;
+  _id: ObjectId;
+  name?: string;
+  email?: string;
+  emailVerified?: boolean;
+  image?: string | null;
+  profileImage?: string | null;
+}
 
 declare global {
   namespace Express {
     interface Request {
-      user?: IUser;
+      user?: AuthenticatedUser;
       file?: Express.Multer.File;
     }
   }
