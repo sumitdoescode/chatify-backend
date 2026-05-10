@@ -63,7 +63,7 @@ export async function register(req: Request, res: Response) {
         }
 
         try {
-            const authResponse = await auth.api.signUpEmail({
+            const response = await auth.api.signUpEmail({
                 body: {
                     name,
                     email,
@@ -73,6 +73,22 @@ export async function register(req: Request, res: Response) {
                 headers: fromNodeHeaders(req.headers),
                 asResponse: true,
             });
+
+            const setCookies = response.headers.getSetCookie?.() ?? response.headers.getAll?.("set-cookie") ?? [];
+
+            response.headers.forEach((value, key) => {
+                if (key.toLowerCase() === "set-cookie") {
+                    return;
+                }
+
+                res.setHeader(key, value);
+            });
+
+            if (setCookies.length) {
+                res.setHeader("Set-Cookie", setCookies);
+            }
+
+            return res.status(response.status).send(await response.text());
         } catch (error) {
             return res.status(400).json({
                 success: false,
@@ -95,15 +111,15 @@ export async function login(req: Request, res: Response) {
         }
 
         try {
-            const authResponse = await auth.api.signInEmail({
+            const response = await auth.api.signInEmail({
                 body: { email, password, rememberMe: true },
                 headers: fromNodeHeaders(req.headers),
                 asResponse: true,
             });
 
-            const setCookies = authResponse.headers.getSetCookie?.() ?? authResponse.headers.getAll?.("set-cookie") ?? [];
+            const setCookies = response.headers.getSetCookie?.() ?? response.headers.getAll?.("set-cookie") ?? [];
 
-            authResponse.headers.forEach((value, key) => {
+            response.headers.forEach((value, key) => {
                 if (key.toLowerCase() === "set-cookie") {
                     return;
                 }
@@ -115,7 +131,7 @@ export async function login(req: Request, res: Response) {
                 res.setHeader("Set-Cookie", setCookies);
             }
 
-            return res.status(authResponse.status).send(await authResponse.text());
+            return res.status(response.status).send(await response.text());
         } catch (error) {
             return res.status(400).json({
                 success: false,
