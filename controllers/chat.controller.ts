@@ -353,16 +353,13 @@ export async function markChatAsRead(req: Request, res: Response) {
 // DELETE => /api/chats/:id
 export async function deleteChat(req: Request, res: Response) {
     try {
-        const loggedInUser = req.user;
         const { id } = req.params;
-        if (!loggedInUser?.id || !ObjectId.isValid(loggedInUser.id)) {
-            return res.status(401).json({ success: false, message: "Unauthorized" });
-        }
-        const loggedInUserObjectId = new ObjectId(loggedInUser.id);
 
         if (!id || !isValidObjectId(id)) {
             return res.status(400).json({ success: false, message: "Invalid Chat id" });
         }
+
+        const loggedInUserObjectId = new ObjectId(req.user!.id);
 
         const chat = await Chat.findById(id);
         if (!chat) {

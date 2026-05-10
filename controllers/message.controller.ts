@@ -12,35 +12,23 @@ import { ObjectId } from "mongodb";
 // POST => /api/messages/:id , id => receiver user id
 export async function sendMessage(req: Request, res: Response) {
     try {
-        const sender = req.user;
-        const receiverId = typeof req.params.id === "string" ? req.params.id : undefined;
+        const senderId = req.user?.id;
+        const receiverId = typeof req.params.id === "string" ? req.params.id : "";
+        const text = typeof req.body.text === "string" ? req.body.text.trim() : "";
+        const file = req.file as Express.Multer.File | undefined;
 
-        if (!sender?.id || !ObjectId.isValid(sender.id)) {
+        if (!senderId || !ObjectId.isValid(senderId)) {
             return res.status(401).json({ success: false, message: "Unauthorized" });
         }
-        const senderObjectId = new ObjectId(sender.id);
 
-        if (!receiverId || !isValidObjectId(receiverId)) {
+        if (!isValidObjectId(receiverId)) {
             return res.status(400).json({ success: false, message: "Invalid receiver ID" });
         }
 
-        if (sender.id === receiverId) {
+        if (senderId === receiverId) {
             return res.status(400).json({ success: false, message: "Cannot send message to yourself" });
         }
 
-        const db = getDB();
-        if (!db) {
-            return res.status(500).json({ success: false, message: "Database connection failed" });
-        }
-
-        const receiver = await db.collection("user").findOne({ _id: new ObjectId(receiverId) }, { projection: { _id: 1 } });
-        if (!receiver) {
-            return res.status(404).json({ success: false, message: "Receiver not found" });
-        }
-
-        const text = typeof req.body.text === "string" ? req.body.text.trim() : "";
-
-        const file = req.file as Express.Multer.File | undefined;
         if (!text && !file) {
             return res.status(400).json({
                 success: false,
@@ -48,29 +36,42 @@ export async function sendMessage(req: Request, res: Response) {
             });
         }
 
+        const senderObjectId = new ObjectId(senderId);
+        const receiverObjectId = new ObjectId(receiverId);
+
+        const db = getDB();
+        if (!db) {
+            return res.status(500).json({ success: false, message: "Database connection failed" });
+        }
+
+        const receiverExists = await db.collection("user").findOne({ _id: receiverObjectId }, { projection: { _id: 1 } });
+        if (!receiverExists) {
+            return res.status(404).json({ success: false, message: "Receiver not found" });
+        }
+
         let chat = await Chat.findOne({
             $or: [
-                { participant1: senderObjectId, participant2: receiver._id },
-                { participant1: receiver._id, participant2: senderObjectId },
+                { participant1: senderObjectId, participant2: receiverObjectId },
+                { participant1: receiverObjectId, participant2: senderObjectId },
             ],
         } as any);
 
         if (!chat) {
             chat = await Chat.create({
                 participant1: senderObjectId,
-                participant2: receiver._id,
+                participant2: receiverObjectId,
             } as any);
         }
 
-        let imageUrl: string | undefined;
-        if (file) {
-            const blob = await put(`messages/${file.originalname}`, file.buffer, {
-                access: "public",
-                addRandomSuffix: true,
-                contentType: file.mimetype,
-            });
-            imageUrl = blob.url;
-        }
+        const imageUrl = file
+            ? (
+                  await put(`messages/${file.originalname}`, file.buffer, {
+                      access: "public",
+                      addRandomSuffix: true,
+                      contentType: file.mimetype,
+                  })
+              ).url
+            : undefined;
 
         const result = sendMessageSchema.safeParse({ text: text || undefined, image: imageUrl });
         if (!result.success) {
@@ -83,37 +84,38 @@ export async function sendMessage(req: Request, res: Response) {
         const message = await Message.create({
             chat: chat._id,
             sender: senderObjectId,
-            receiver: receiver._id,
+            receiver: receiverObjectId,
             text: result.data.text,
             image: result.data.image,
             isRead: false,
         } as any);
 
+        const chatId = chat._id.toString();
+        const receiverSocketRoom = receiverId;
         const payload = {
             _id: message._id.toString(),
-            chat: chat._id.toString(),
-            sender: sender.id,
-            receiver: receiver._id.toString(),
+            chat: chatId,
+            sender: senderId,
+            receiver: receiverId,
             text: message.text,
             image: message.image,
             createdAt: message.createdAt,
         };
 
-        io.to(sender.id).emit("message:new", payload);
-        io.to(receiver._id.toString()).emit("message:new", payload);
+        io.to(senderId).emit("message:new", payload);
+        io.to(receiverSocketRoom).emit("message:new", payload);
 
         chat.lastMessage = message._id as any;
-        const receiverIdString = receiver._id.toString();
-        if (chat.participant1?.toString() === receiverIdString) {
+        if (chat.participant1?.toString() === receiverId) {
             chat.unreadCountP1 = (chat.unreadCountP1 || 0) + 1;
-        } else if (chat.participant2?.toString() === receiverIdString) {
+        } else if (chat.participant2?.toString() === receiverId) {
             chat.unreadCountP2 = (chat.unreadCountP2 || 0) + 1;
         }
         await chat.save();
 
-        const receiverUnreadCount = chat.participant1?.toString() === receiver._id.toString() ? chat.unreadCountP1 || 0 : chat.unreadCountP2 || 0;
+        const receiverUnreadCount = chat.participant1?.toString() === receiverId ? chat.unreadCountP1 || 0 : chat.unreadCountP2 || 0;
 
-        io.to(receiver._id.toString()).emit("unread:update", { chatId: chat._id.toString(), unreadCount: receiverUnreadCount });
+        io.to(receiverSocketRoom).emit("unread:update", { chatId, unreadCount: receiverUnreadCount });
 
         return res.status(200).json({
             success: true,
