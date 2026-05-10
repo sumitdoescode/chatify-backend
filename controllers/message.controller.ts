@@ -15,15 +15,16 @@ export async function sendMessage(req: Request, res: Response) {
         const sender = req.user;
         const receiverId = typeof req.params.id === "string" ? req.params.id : undefined;
 
-        if (!sender?._id) {
+        if (!sender?.id || !ObjectId.isValid(sender.id)) {
             return res.status(401).json({ success: false, message: "Unauthorized" });
         }
+        const senderObjectId = new ObjectId(sender.id);
 
         if (!receiverId || !isValidObjectId(receiverId)) {
             return res.status(400).json({ success: false, message: "Invalid receiver ID" });
         }
 
-        if (sender._id.toString() === receiverId) {
+        if (sender.id === receiverId) {
             return res.status(400).json({ success: false, message: "Cannot send message to yourself" });
         }
 
@@ -49,14 +50,14 @@ export async function sendMessage(req: Request, res: Response) {
 
         let chat = await Chat.findOne({
             $or: [
-                { participant1: sender._id, participant2: receiver._id },
-                { participant1: receiver._id, participant2: sender._id },
+                { participant1: senderObjectId, participant2: receiver._id },
+                { participant1: receiver._id, participant2: senderObjectId },
             ],
         } as any);
 
         if (!chat) {
             chat = await Chat.create({
-                participant1: sender._id,
+                participant1: senderObjectId,
                 participant2: receiver._id,
             } as any);
         }
@@ -81,7 +82,7 @@ export async function sendMessage(req: Request, res: Response) {
 
         const message = await Message.create({
             chat: chat._id,
-            sender: sender._id,
+            sender: senderObjectId,
             receiver: receiver._id,
             text: result.data.text,
             image: result.data.image,
@@ -91,14 +92,14 @@ export async function sendMessage(req: Request, res: Response) {
         const payload = {
             _id: message._id.toString(),
             chat: chat._id.toString(),
-            sender: sender._id.toString(),
+            sender: sender.id,
             receiver: receiver._id.toString(),
             text: message.text,
             image: message.image,
             createdAt: message.createdAt,
         };
 
-        io.to(sender._id.toString()).emit("message:new", payload);
+        io.to(sender.id).emit("message:new", payload);
         io.to(receiver._id.toString()).emit("message:new", payload);
 
         chat.lastMessage = message._id as any;

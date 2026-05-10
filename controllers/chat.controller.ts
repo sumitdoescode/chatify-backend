@@ -15,15 +15,16 @@ export async function resolveChat(req: Request, res: Response) {
         const loggedInUser = req.user;
         const { userId } = req.body as { userId?: string };
 
-        if (!loggedInUser?._id) {
+        if (!loggedInUser?.id || !ObjectId.isValid(loggedInUser.id)) {
             return res.status(401).json({ success: false, message: "Unauthorized" });
         }
+        const loggedInUserObjectId = new ObjectId(loggedInUser.id);
 
         if (!userId || !isValidObjectId(userId)) {
             return res.status(400).json({ success: false, message: "Invalid user ID" });
         }
 
-        if (loggedInUser._id.toString() === userId) {
+        if (loggedInUser.id === userId) {
             return res.status(400).json({ success: false, message: "Cannot create chat with yourself" });
         }
 
@@ -39,15 +40,15 @@ export async function resolveChat(req: Request, res: Response) {
 
         let chat = await Chat.findOne({
             $or: [
-                { participant1: loggedInUser._id, participant2: userId },
-                { participant1: userId, participant2: loggedInUser._id },
+                { participant1: loggedInUserObjectId, participant2: userId },
+                { participant1: userId, participant2: loggedInUserObjectId },
             ],
         } as any);
 
         let isNew = false;
         if (!chat) {
             chat = await Chat.create({
-                participant1: loggedInUser._id,
+                participant1: loggedInUserObjectId,
                 participant2: userId,
             } as any);
             isNew = true;
@@ -68,25 +69,25 @@ export async function resolveChat(req: Request, res: Response) {
 // GET => /api/chats
 export async function getAllChats(req: Request, res: Response) {
     try {
-        const loggedInUser = req.user;
+        const loggedInUserObjectId = new ObjectId(req.user!.id);
         const chats = await Chat.aggregate([
             {
                 $match: {
-                    $or: [{ participant1: loggedInUser?._id }, { participant2: loggedInUser?._id }],
+                    $or: [{ participant1: loggedInUserObjectId }, { participant2: loggedInUserObjectId }],
                 },
             },
             {
                 $addFields: {
                     otherParticipant: {
                         $cond: {
-                            if: { $eq: ["$participant1", loggedInUser?._id] },
+                            if: { $eq: ["$participant1", loggedInUserObjectId] },
                             then: "$participant2",
                             else: "$participant1",
                         },
                     },
                     unreadCount: {
                         $cond: {
-                            if: { $eq: ["$participant1", loggedInUser?._id] },
+                            if: { $eq: ["$participant1", loggedInUserObjectId] },
                             then: { $ifNull: ["$unreadCountP1", 0] },
                             else: { $ifNull: ["$unreadCountP2", 0] },
                         },
@@ -163,31 +164,31 @@ export async function getAllChats(req: Request, res: Response) {
 export async function getChatById(req: Request, res: Response) {
     try {
         const chatId = req.params.id;
-        const loggedInUser = req.user;
 
         if (!isValidObjectId(chatId)) {
             return res.status(400).json({ success: false, message: "Invalid Chat id" });
         }
+        const loggedInUserObjectId = new ObjectId(req.user!.id);
 
         const chat = await Chat.aggregate([
             {
                 $match: {
                     _id: new mongoose.Types.ObjectId(chatId as any),
-                    $or: [{ participant1: loggedInUser?._id }, { participant2: loggedInUser?._id }],
+                    $or: [{ participant1: loggedInUserObjectId }, { participant2: loggedInUserObjectId }],
                 },
             },
             {
                 $addFields: {
                     otherParticipant: {
                         $cond: {
-                            if: { $eq: ["$participant1", loggedInUser?._id] },
+                            if: { $eq: ["$participant1", loggedInUserObjectId] },
                             then: "$participant2",
                             else: "$participant1",
                         },
                     },
                     unreadCount: {
                         $cond: {
-                            if: { $eq: ["$participant1", loggedInUser?._id] },
+                            if: { $eq: ["$participant1", loggedInUserObjectId] },
                             then: { $ifNull: ["$unreadCountP1", 0] },
                             else: { $ifNull: ["$unreadCountP2", 0] },
                         },
@@ -250,9 +251,7 @@ export async function getChatById(req: Request, res: Response) {
 // GET => /api/chats/:id/messages
 export async function getChatMessages(req: Request, res: Response) {
     try {
-        const loggedInUser = req.user;
         const chatId = req.params.id;
-
         if (!chatId || !isValidObjectId(chatId)) {
             return res.status(400).json({ success: false, message: "Invalid chat ID" });
         }
@@ -260,26 +259,27 @@ export async function getChatMessages(req: Request, res: Response) {
         const page = Math.max(1, Number(req.query.page) || 1); // default value = 1, min value = 1
         const limit = Math.min(100, Math.max(10, Number(req.query.limit) || 50)); // default value = 50, min value = 10, max value = 100
         const skip = (page - 1) * limit;
+        const loggedInUserObjectId = new ObjectId(req.user!.id);
 
         const chatExists = await Chat.findOne({
             _id: chatId,
-            $or: [{ participant1: loggedInUser?._id }, { participant2: loggedInUser?._id }],
+            $or: [{ participant1: loggedInUserObjectId }, { participant2: loggedInUserObjectId }],
         } as any);
 
         if (!chatExists) {
             return res.status(404).json({ success: false, message: "Chat not found or access denied" });
         }
 
-        await Message.updateMany({ chat: chatId, receiver: loggedInUser?._id, isRead: false } as any, { $set: { isRead: true, readAt: new Date() } } as any);
+        await Message.updateMany({ chat: chatId, receiver: loggedInUserObjectId, isRead: false } as any, { $set: { isRead: true, readAt: new Date() } } as any);
 
-        if (chatExists.participant1?.toString() === loggedInUser?._id?.toString()) {
+        if (chatExists.participant1?.toString() === loggedInUserObjectId.toString()) {
             chatExists.unreadCountP1 = 0;
-        } else if (chatExists.participant2?.toString() === loggedInUser?._id?.toString()) {
+        } else if (chatExists.participant2?.toString() === loggedInUserObjectId.toString()) {
             chatExists.unreadCountP2 = 0;
         }
         await chatExists.save();
 
-        io.to(loggedInUser!._id.toString()).emit("unread:update", { chatId: chatExists._id.toString(), unreadCount: 0 });
+        io.to(loggedInUserObjectId.toString()).emit("unread:update", { chatId: chatExists._id.toString(), unreadCount: 0 });
 
         const messages = (await Message.find({ chat: chatId } as any)
             .select("-chat")
@@ -313,6 +313,10 @@ export async function markChatAsRead(req: Request, res: Response) {
     try {
         const loggedInUser = req.user;
         const { id } = req.params;
+        if (!loggedInUser?.id || !ObjectId.isValid(loggedInUser.id)) {
+            return res.status(401).json({ success: false, message: "Unauthorized" });
+        }
+        const loggedInUserObjectId = new ObjectId(loggedInUser.id);
 
         if (!id || !isValidObjectId(id)) {
             return res.status(400).json({ success: false, message: "Invalid chat ID" });
@@ -320,18 +324,18 @@ export async function markChatAsRead(req: Request, res: Response) {
 
         const chat = await Chat.findOne({
             _id: id,
-            $or: [{ participant1: loggedInUser?._id }, { participant2: loggedInUser?._id }],
+            $or: [{ participant1: loggedInUserObjectId }, { participant2: loggedInUserObjectId }],
         } as any);
 
         if (!chat) {
             return res.status(404).json({ success: false, message: "Chat not found or access denied" });
         }
 
-        await Message.updateMany({ chat: id, receiver: loggedInUser?._id, isRead: false } as any, { $set: { isRead: true, readAt: new Date() } } as any);
+        await Message.updateMany({ chat: id, receiver: loggedInUserObjectId, isRead: false } as any, { $set: { isRead: true, readAt: new Date() } } as any);
 
-        if (chat.participant1?.toString() === loggedInUser?._id?.toString()) {
+        if (chat.participant1?.toString() === loggedInUser.id) {
             chat.unreadCountP1 = 0;
-        } else if (chat.participant2?.toString() === loggedInUser?._id?.toString()) {
+        } else if (chat.participant2?.toString() === loggedInUser.id) {
             chat.unreadCountP2 = 0;
         }
 
@@ -351,6 +355,10 @@ export async function deleteChat(req: Request, res: Response) {
     try {
         const loggedInUser = req.user;
         const { id } = req.params;
+        if (!loggedInUser?.id || !ObjectId.isValid(loggedInUser.id)) {
+            return res.status(401).json({ success: false, message: "Unauthorized" });
+        }
+        const loggedInUserObjectId = new ObjectId(loggedInUser.id);
 
         if (!id || !isValidObjectId(id)) {
             return res.status(400).json({ success: false, message: "Invalid Chat id" });
@@ -363,7 +371,7 @@ export async function deleteChat(req: Request, res: Response) {
 
         const isDeleted = await Chat.findOneAndDelete({
             _id: chat._id,
-            $or: [{ participant1: loggedInUser?._id }, { participant2: loggedInUser?._id }],
+            $or: [{ participant1: loggedInUserObjectId }, { participant2: loggedInUserObjectId }],
         } as any);
 
         if (!isDeleted) {
